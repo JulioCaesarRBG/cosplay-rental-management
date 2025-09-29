@@ -44,13 +44,22 @@ public class Costume extends javax.swing.JFrame {
     ResultSet Rs = null;
     
     private void TampilkanKostum(){
+    Connection conn = null;
+    PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    
     try{
-    Con = DriverManager.getConnection("jdbc:mysql://localhost/rental_cosplay","root","");
-    St = Con.createStatement();
-    Rs = St.executeQuery("select IDKostum as 'ID Kostum', NamaKarakter as 'Nama Karakter', AsalKarakter as 'Asal Karakter', Ukuran, Stok, Harga from Kostum");
-    Kostumtb.setModel(DbUtils.resultSetToTableModel(Rs));
+        conn = DatabaseManager.getInstance().getConnection();
+        String query = "SELECT IDKostum as 'ID Kostum', NamaKarakter as 'Nama Karakter', " +
+                      "AsalKarakter as 'Asal Karakter', Ukuran, Stok, Harga FROM Kostum";
+        pstmt = conn.prepareStatement(query);
+        rs = pstmt.executeQuery();
+        Kostumtb.setModel(DbUtils.resultSetToTableModel(rs));
     }catch(SQLException e){
-        e.printStackTrace();
+        JOptionPane.showMessageDialog(this, "Terjadi kesalahan saat memuat data kostum.");
+        System.err.println("Database error in TampilkanKostum: " + e.getMessage());
+    }finally{
+        DatabaseManager.closeResources(conn, pstmt, rs);
     }}
     
     @SuppressWarnings("unchecked")
@@ -448,52 +457,97 @@ public class Costume extends javax.swing.JFrame {
     }//GEN-LAST:event_IDKostumtxtActionPerformed
 
     private void SavebtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_SavebtnActionPerformed
-        // TODO add your handling code here:
-        if (NmKaraktertxt.getText().isEmpty() || AslKaraktertxt.getText().isEmpty() || Ukurantxt.getSelectedIndex () == -1 || /*Statustxt.getSelectedIndex () == -1 ||*/ Stoktxt.getText().isEmpty()|| Hargatxt.getText().isEmpty()){
+        // Input validation
+        if (NmKaraktertxt.getText().trim().isEmpty() || 
+            AslKaraktertxt.getText().trim().isEmpty() || 
+            Ukurantxt.getSelectedIndex() == -1 || 
+            Stoktxt.getText().trim().isEmpty() || 
+            Hargatxt.getText().trim().isEmpty()){
             JOptionPane.showMessageDialog(this, "Data yang Dimasukkan Tidak Lengkap");
-        }else{
+            return;
+        }
+        
+        // Validate numeric inputs
+        try {
+            Integer.parseInt(Stoktxt.getText().trim());
+            Integer.parseInt(Hargatxt.getText().trim());
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Stok dan Harga harus berupa angka yang valid");
+            return;
+        }
+        
+        Connection conn = null;
+        PreparedStatement pstmt = null;
         
         try{
-        Con = DriverManager.getConnection("jdbc:mysql://localhost/rental_cosplay","root","");
-        PreparedStatement add = Con.prepareStatement("insert into kostum(NamaKarakter, AsalKarakter, Ukuran, Stok, Harga) values(?,?,?,?,?)");
-        add.setString(1, NmKaraktertxt.getText());
-        add.setString(2, AslKaraktertxt.getText());
-        add.setString(3, Ukurantxt.getSelectedItem().toString());
-        //add.setString(4, Statustxt.getSelectedItem().toString());
-        add.setInt(4, Integer.parseInt(Stoktxt.getText()));
-        add.setInt(5, Integer.parseInt(Hargatxt.getText()));
-        int row = add.executeUpdate();
-        JOptionPane.showMessageDialog(this, "Kostum Berhasil Ditambahkan");
-        TampilkanKostum();
-        } catch (Exception e){
-            e.printStackTrace();
-        }
+            conn = DatabaseManager.getInstance().getConnection();
+            String query = "INSERT INTO kostum(NamaKarakter, AsalKarakter, Ukuran, Stok, Harga) VALUES(?,?,?,?,?)";
+            pstmt = conn.prepareStatement(query);
+            
+            pstmt.setString(1, NmKaraktertxt.getText().trim());
+            pstmt.setString(2, AslKaraktertxt.getText().trim());
+            pstmt.setString(3, Ukurantxt.getSelectedItem().toString());
+            pstmt.setInt(4, Integer.parseInt(Stoktxt.getText().trim()));
+            pstmt.setInt(5, Integer.parseInt(Hargatxt.getText().trim()));
+            
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                JOptionPane.showMessageDialog(this, "Kostum Berhasil Ditambahkan");
+                TampilkanKostum();
+                clear();
+            }
+        } catch (SQLException e){
+            JOptionPane.showMessageDialog(this, "Terjadi kesalahan saat menyimpan data kostum.");
+            System.err.println("Database error in Save: " + e.getMessage());
+        } finally {
+            DatabaseManager.closeResources(conn, pstmt, null);
         }
         
     }//GEN-LAST:event_SavebtnActionPerformed
 
     private void DelettebtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_DelettebtnActionPerformed
-        // TODO add your handling code here:
-        int a = JOptionPane.showConfirmDialog(null, "Apakah Anda Yakin Ingin Menghapus Kostum ini", "Konfirmasi", JOptionPane.YES_NO_OPTION);
-        if (a == 0){
-        if (IDKostumtxt.getText().isEmpty()){
+        if (IDKostumtxt.getText().trim().isEmpty()){
             JOptionPane.showMessageDialog(this, "Pilih Kostum yang ingin dihapus");
-        }else{
+            return;
+        }
+        
+        int confirmation = JOptionPane.showConfirmDialog(
+            this, 
+            "Apakah Anda Yakin Ingin Menghapus Kostum ini?", 
+            "Konfirmasi Hapus", 
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.WARNING_MESSAGE
+        );
+        
+        if (confirmation != JOptionPane.YES_OPTION) {
+            return;
+        }
+        
+        Connection conn = null;
+        PreparedStatement pstmt = null;
         
         try{
-        Con = DriverManager.getConnection("jdbc:mysql://localhost/rental_cosplay","root","");
-        String ID = IDKostumtxt.getText();
-        String query = "Delete from kostum where IDKostum = '" + ID + "'";
-        Statement Add = Con.createStatement();
-        Add.executeUpdate(query);
-        TampilkanKostum();
-        clear();
-        JOptionPane.showMessageDialog(this, "Kostum Berhasil Dihapus");
-        } catch (Exception e){
-            e.printStackTrace();
-        }
-        }
-    }//GEN-LAST:event_DelettebtnActionPerformed
+            conn = DatabaseManager.getInstance().getConnection();
+            String query = "DELETE FROM kostum WHERE IDKostum = ?";
+            pstmt = conn.prepareStatement(query);
+            pstmt.setInt(1, Integer.parseInt(IDKostumtxt.getText().trim()));
+            
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                JOptionPane.showMessageDialog(this, "Kostum Berhasil Dihapus");
+                TampilkanKostum();
+                clear();
+            } else {
+                JOptionPane.showMessageDialog(this, "Kostum tidak ditemukan atau sudah terhapus");
+            }
+        } catch (SQLException e){
+            JOptionPane.showMessageDialog(this, "Terjadi kesalahan saat menghapus kostum. Mungkin kostum sedang digunakan.");
+            System.err.println("Database error in Delete: " + e.getMessage());
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "ID Kostum tidak valid");
+        } finally {
+            DatabaseManager.closeResources(conn, pstmt, null);
+        }//GEN-LAST:event_DelettebtnActionPerformed
     }
     
     private void KostumtbMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_KostumtbMouseClicked
@@ -510,23 +564,55 @@ public class Costume extends javax.swing.JFrame {
     }//GEN-LAST:event_KostumtbMouseClicked
 
     private void EditbtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_EditbtnActionPerformed
-        // TODO add your handling code here:
-        if (IDKostumtxt.getText().isEmpty() || NmKaraktertxt.getText().isEmpty() || AslKaraktertxt.getText().isEmpty() || Ukurantxt.getSelectedIndex () == -1 || /*Statustxt.getSelectedIndex () == -1 ||*/ Stoktxt.getText().isEmpty()|| Hargatxt.getText().isEmpty()){
-            JOptionPane.showMessageDialog(this, "Pilih Kostum yang ingin diubah");
-        }else{
+        // Input validation
+        if (IDKostumtxt.getText().trim().isEmpty() || 
+            NmKaraktertxt.getText().trim().isEmpty() || 
+            AslKaraktertxt.getText().trim().isEmpty() || 
+            Ukurantxt.getSelectedIndex() == -1 || 
+            Stoktxt.getText().trim().isEmpty() || 
+            Hargatxt.getText().trim().isEmpty()){
+            JOptionPane.showMessageDialog(this, "Pilih Kostum yang ingin diubah dan lengkapi semua data");
+            return;
+        }
+        
+        // Validate numeric inputs
+        try {
+            Integer.parseInt(Stoktxt.getText().trim());
+            Integer.parseInt(Hargatxt.getText().trim());
+            Integer.parseInt(IDKostumtxt.getText().trim());
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "ID, Stok dan Harga harus berupa angka yang valid");
+            return;
+        }
+        
+        Connection conn = null;
+        PreparedStatement pstmt = null;
         
         try{
-        Con = DriverManager.getConnection("jdbc:mysql://localhost/rental_cosplay","root","");
-        String ID = IDKostumtxt.getText();
-        String query = "Update Kostum set NamaKarakter= '" + NmKaraktertxt.getText() + "', AsalKarakter='" + AslKaraktertxt.getText()+ "', Ukuran= '" + Ukurantxt.getSelectedItem().toString() +/*"', Status= '" + Statustxt.getSelectedItem().toString() +*/"', Stok = " + Stoktxt.getText() +", Harga= " + Hargatxt.getText()+" where IDKostum= '" + ID + "'";
-        Statement Add = Con.createStatement();
-        Add.executeUpdate(query);
-        TampilkanKostum();
-        clear();
-        JOptionPane.showMessageDialog(this, "Kostum Berhasil Diubah");
-        } catch (Exception e){
-            e.printStackTrace();
-        }
+            conn = DatabaseManager.getInstance().getConnection();
+            String query = "UPDATE Kostum SET NamaKarakter=?, AsalKarakter=?, Ukuran=?, Stok=?, Harga=? WHERE IDKostum=?";
+            pstmt = conn.prepareStatement(query);
+            
+            pstmt.setString(1, NmKaraktertxt.getText().trim());
+            pstmt.setString(2, AslKaraktertxt.getText().trim());
+            pstmt.setString(3, Ukurantxt.getSelectedItem().toString());
+            pstmt.setInt(4, Integer.parseInt(Stoktxt.getText().trim()));
+            pstmt.setInt(5, Integer.parseInt(Hargatxt.getText().trim()));
+            pstmt.setInt(6, Integer.parseInt(IDKostumtxt.getText().trim()));
+            
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                JOptionPane.showMessageDialog(this, "Kostum Berhasil Diubah");
+                TampilkanKostum();
+                clear();
+            } else {
+                JOptionPane.showMessageDialog(this, "Kostum tidak ditemukan");
+            }
+        } catch (SQLException e){
+            JOptionPane.showMessageDialog(this, "Terjadi kesalahan saat mengubah data kostum.");
+            System.err.println("Database error in Edit: " + e.getMessage());
+        } finally {
+            DatabaseManager.closeResources(conn, pstmt, null);
         }
     }//GEN-LAST:event_EditbtnActionPerformed
 

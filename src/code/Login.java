@@ -176,27 +176,55 @@ public class Login extends javax.swing.JFrame {
 
     private void LoginbtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_LoginbtnActionPerformed
         // TODO add your handling code here:
-         try{
-        Con = DriverManager.getConnection("jdbc:mysql://localhost/rental_cosplay","root","");
-        String user   = Usertxt.getText();
-        String pass    = Passtxt.getText();
-        String query = "SELECT * FROM user WHERE username = '"+ user +"'AND password = '"+ pass +"'" ;
+        String user = InputValidator.sanitizeInput(Usertxt.getText().trim());
+        String pass = new String(Passtxt.getPassword());
         
-        St = Con.createStatement();
-        Rs = St.executeQuery(query);
-        
-        if(Usertxt.getText().isEmpty() || Passtxt.getText().isEmpty()){
-        JOptionPane.showMessageDialog(this, "Masukkan username dan password");
-        
-        }else if(Rs.next()){
-        new Costume().setVisible(true);
-        this.dispose();
-        
-        }else{
-        JOptionPane.showMessageDialog(this, "Username atau Password yang Anda Masukkan Salah");
+        // Input validation
+        if(!InputValidator.isNotEmpty(user) || !InputValidator.isNotEmpty(pass)){
+            JOptionPane.showMessageDialog(this, "Masukkan username dan password");
+            return;
         }
+        
+        // Additional input validation
+        if(!InputValidator.isValidLength(user, 1, 50) || !InputValidator.isValidLength(pass, 1, 100)){
+            JOptionPane.showMessageDialog(this, "Username atau password terlalu panjang");
+            return;
+        }
+        
+        Connection conn = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+        
+        try{
+            conn = DatabaseManager.getInstance().getConnection();
+            
+            // Using PreparedStatement to prevent SQL injection
+            String query = "SELECT username, password FROM user WHERE username = ? AND password = ?";
+            pstmt = conn.prepareStatement(query);
+            pstmt.setString(1, user);
+            pstmt.setString(2, pass); // Note: In production, this should be hashed password
+            
+            rs = pstmt.executeQuery();
+            
+            if(rs.next()){
+                JOptionPane.showMessageDialog(this, "Login berhasil! Selamat datang, " + user);
+                new Costume().setVisible(true);
+                this.dispose();
+            } else {
+                JOptionPane.showMessageDialog(this, "Username atau Password yang Anda Masukkan Salah");
+                // Clear password field for security
+                Passtxt.setText("");
+            }
+            
+        }catch(SQLException e){
+            JOptionPane.showMessageDialog(this, "Terjadi kesalahan koneksi database. Silakan coba lagi.");
+            System.err.println("Database error: " + e.getMessage());
         }catch(Exception e){
-            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Terjadi kesalahan sistem. Silakan coba lagi.");
+            System.err.println("Unexpected error: " + e.getMessage());
+        }finally{
+            // Close connections properly
+            DatabaseManager.closeResources(conn, pstmt, rs);
         }
     }//GEN-LAST:event_LoginbtnActionPerformed
 
