@@ -14,6 +14,12 @@ import java.sql.PreparedStatement;
 import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
 import net.proteanit.sql.DbUtils;
+import java.math.BigDecimal;
+import model.Costume;
+import service.CostumeService;
+import util.AppConstants;
+import util.AppLogger;
+import util.CurrentUserSession;
 
 /**
  *
@@ -457,50 +463,61 @@ public class Costume extends javax.swing.JFrame {
     }//GEN-LAST:event_IDKostumtxtActionPerformed
 
     private void SavebtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_SavebtnActionPerformed
-        // Input validation
-        if (NmKaraktertxt.getText().trim().isEmpty() || 
-            AslKaraktertxt.getText().trim().isEmpty() || 
-            Ukurantxt.getSelectedIndex() == -1 || 
-            Stoktxt.getText().trim().isEmpty() || 
-            Hargatxt.getText().trim().isEmpty()){
-            JOptionPane.showMessageDialog(this, "Data yang Dimasukkan Tidak Lengkap");
-            return;
-        }
-        
-        // Validate numeric inputs
         try {
-            Integer.parseInt(Stoktxt.getText().trim());
-            Integer.parseInt(Hargatxt.getText().trim());
-        } catch (NumberFormatException e) {
-            JOptionPane.showMessageDialog(this, "Stok dan Harga harus berupa angka yang valid");
-            return;
-        }
-        
-        Connection conn = null;
-        PreparedStatement pstmt = null;
-        
-        try{
-            conn = DatabaseManager.getInstance().getConnection();
-            String query = "INSERT INTO kostum(NamaKarakter, AsalKarakter, Ukuran, Stok, Harga) VALUES(?,?,?,?,?)";
-            pstmt = conn.prepareStatement(query);
+            // Validate session
+            CurrentUserSession.validateSession();
             
-            pstmt.setString(1, NmKaraktertxt.getText().trim());
-            pstmt.setString(2, AslKaraktertxt.getText().trim());
-            pstmt.setString(3, Ukurantxt.getSelectedItem().toString());
-            pstmt.setInt(4, Integer.parseInt(Stoktxt.getText().trim()));
-            pstmt.setInt(5, Integer.parseInt(Hargatxt.getText().trim()));
+            // Input validation
+            if (NmKaraktertxt.getText().trim().isEmpty() || 
+                AslKaraktertxt.getText().trim().isEmpty() || 
+                Ukurantxt.getSelectedIndex() == -1 || 
+                Stoktxt.getText().trim().isEmpty() || 
+                Hargatxt.getText().trim().isEmpty()){
+                JOptionPane.showMessageDialog(this, AppConstants.ErrorMessages.REQUIRED_FIELD);
+                return;
+            }
             
-            int rowsAffected = pstmt.executeUpdate();
-            if (rowsAffected > 0) {
-                JOptionPane.showMessageDialog(this, "Kostum Berhasil Ditambahkan");
+            // Validate numeric inputs
+            int stock;
+            BigDecimal price;
+            try {
+                stock = Integer.parseInt(Stoktxt.getText().trim());
+                price = new BigDecimal(Hargatxt.getText().trim());
+            } catch (NumberFormatException e) {
+                JOptionPane.showMessageDialog(this, "Stok dan Harga harus berupa angka yang valid");
+                return;
+            }
+            
+            // Use CostumeService to create costume
+            model.Costume newCostume = CostumeService.getInstance().createCostume(
+                NmKaraktertxt.getText().trim(),
+                AslKaraktertxt.getText().trim(),
+                Ukurantxt.getSelectedItem().toString(),
+                stock,
+                price
+            );
+            
+            if (newCostume != null) {
+                JOptionPane.showMessageDialog(this, AppConstants.SuccessMessages.DATA_SAVED);
                 TampilkanKostum();
                 clear();
+                
+                // Log user action
+                AppLogger.logUserAction(CurrentUserSession.getCurrentUsername(), 
+                                      AppConstants.Actions.CREATE, "Costume", 
+                                      String.valueOf(newCostume.getCostumeId()), 
+                                      "Added new costume: " + newCostume.getCharacterName());
+            } else {
+                JOptionPane.showMessageDialog(this, AppConstants.ErrorMessages.DB_OPERATION_FAILED);
             }
-        } catch (SQLException e){
+            
+        } catch (CurrentUserSession.SessionExpiredException e) {
+            JOptionPane.showMessageDialog(this, "Sesi telah berakhir. Silakan login kembali.");
+            new Login().setVisible(true);
+            this.dispose();
+        } catch (Exception e) {
+            AppLogger.logError("Error in SavebtnActionPerformed", e);
             JOptionPane.showMessageDialog(this, "Terjadi kesalahan saat menyimpan data kostum.");
-            System.err.println("Database error in Save: " + e.getMessage());
-        } finally {
-            DatabaseManager.closeResources(conn, pstmt, null);
         }
         
     }//GEN-LAST:event_SavebtnActionPerformed

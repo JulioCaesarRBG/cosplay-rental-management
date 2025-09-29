@@ -1,15 +1,19 @@
 # Rental Cosplay Management System
 
-A Java Swing-based desktop application for managing costume rental business operations.
+A modern Java Swing-based desktop application for managing costume rental business operations, now with improved architecture, security, and code quality.
 
 ## Features
 
-- **User Authentication**: Secure login system
+- **User Authentication**: Secure login system with input validation and password hashing
 - **Costume Management**: Add, edit, delete, and view costume inventory
 - **Customer Management**: Manage customer information and contacts
 - **Rental Operations**: Process costume rentals with date tracking
 - **Return Management**: Handle costume returns with late fee calculations
 - **Reporting**: Print rental receipts and reports
+- **MVC Architecture**: Clean separation of Model, View, and Controller
+- **Service Layer**: Business logic separated from UI
+- **Logging System**: Application events and errors are logged
+- **Input Validation**: Comprehensive validation and sanitization for all user input
 
 ## Technology Stack
 
@@ -21,11 +25,12 @@ A Java Swing-based desktop application for managing costume rental business oper
   - JCalendar for date picking
   - MySQL Connector/J for database connectivity
   - rs2xml for table data binding
+  - Java Logging API for application logging
 
 ## Database Schema
 
 The application uses a MySQL database with the following main tables:
-- `user` - System users and authentication
+- `user` - System users and authentication (with password hashing and salt)
 - `kostum` - Costume inventory management  
 - `pelanggan` - Customer information
 - `rental` - Rental transaction records
@@ -36,13 +41,16 @@ The application uses a MySQL database with the following main tables:
 ```
 src/
 ├── code/
-│   ├── Login.java          # User authentication
-│   ├── Costume.java        # Costume management
-│   ├── Pelanggan.java      # Customer management
-│   ├── SewaKostum.java     # Rental operations
-│   └── Pengembalian.java   # Return operations
+│   ├── model/                # Entity models (User, Costume, Customer, Rental)
+│   ├── service/              # Business logic (UserService, CostumeService, etc)
+│   ├── util/                 # Utilities (logging, validation, constants)
+│   ├── Login.java            # User authentication (View/Controller)
+│   ├── Costume.java          # Costume management (View/Controller)
+│   ├── Pelanggan.java        # Customer management (View/Controller)
+│   ├── SewaKostum.java       # Rental operations (View/Controller)
+│   └── Pengembalian.java     # Return operations (View/Controller)
 ├── Gambar/
-│   └── logo.png           # Application logo
+│   └── logo.png              # Application logo
 lib/
 ├── jcalendar-1.4.jar
 ├── mysql-connector-j-8.0.33.jar
@@ -55,19 +63,24 @@ lib/
    - Install MySQL server
    - Create database `rental_cosplay`
    - Set up required tables and user account
+   - Use password hashing for user table (see SECURITY_IMPROVEMENTS.md)
 
 2. **Application Setup**:
    - Open project in NetBeans IDE
    - Ensure all JAR libraries are in classpath
-   - Configure database connection settings
+   - Configure database connection settings in `src/config/database.properties`
    - Build and run the application
 
-## Security Notes
+## Security & Code Quality
 
-⚠️ **Important**: This application is currently in development and contains security vulnerabilities that should be addressed before production use:
-- SQL injection vulnerabilities
-- Plain text password storage
-- Hard-coded database credentials
+- All database operations use PreparedStatement to prevent SQL injection
+- Passwords are hashed and salted before storage
+- Input is validated and sanitized throughout the application
+- Centralized database connection management
+- Logging system for error and event tracking
+- MVC pattern and service layer for maintainable code
+
+See [`SECURITY_IMPROVEMENTS.md`](SECURITY_IMPROVEMENTS.md) for details.
 
 ## License
 

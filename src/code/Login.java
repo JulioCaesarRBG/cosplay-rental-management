@@ -10,6 +10,11 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import javax.swing.JOptionPane;
+import model.User;
+import service.UserService;
+import util.AppConstants;
+import util.AppLogger;
+import util.CurrentUserSession;
 
 
 
@@ -175,39 +180,33 @@ public class Login extends javax.swing.JFrame {
     }//GEN-LAST:event_PasstxtActionPerformed
 
     private void LoginbtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_LoginbtnActionPerformed
-        // TODO add your handling code here:
-        String user = InputValidator.sanitizeInput(Usertxt.getText().trim());
-        String pass = new String(Passtxt.getPassword());
+        String username = Usertxt.getText().trim();
+        String password = new String(Passtxt.getPassword());
         
         // Input validation
-        if(!InputValidator.isNotEmpty(user) || !InputValidator.isNotEmpty(pass)){
-            JOptionPane.showMessageDialog(this, "Masukkan username dan password");
+        if(!InputValidator.isNotEmpty(username) || !InputValidator.isNotEmpty(password)){
+            JOptionPane.showMessageDialog(this, AppConstants.ErrorMessages.REQUIRED_FIELD);
             return;
         }
         
         // Additional input validation
-        if(!InputValidator.isValidLength(user, 1, 50) || !InputValidator.isValidLength(pass, 1, 100)){
+        if(!InputValidator.isValidLength(username, 1, 50) || !InputValidator.isValidLength(password, 1, 100)){
             JOptionPane.showMessageDialog(this, "Username atau password terlalu panjang");
             return;
         }
         
-        Connection conn = null;
-        PreparedStatement pstmt = null;
-        ResultSet rs = null;
-        
-        try{
-            conn = DatabaseManager.getInstance().getConnection();
+        try {
+            // Use UserService for authentication
+            User authenticatedUser = UserService.getInstance().authenticate(username, password);
             
-            // Using PreparedStatement to prevent SQL injection
-            String query = "SELECT username, password FROM user WHERE username = ? AND password = ?";
-            pstmt = conn.prepareStatement(query);
-            pstmt.setString(1, user);
-            pstmt.setString(2, pass); // Note: In production, this should be hashed password
-            
-            rs = pstmt.executeQuery();
-            
-            if(rs.next()){
-                JOptionPane.showMessageDialog(this, "Login berhasil! Selamat datang, " + user);
+            if (authenticatedUser != null) {
+                // Store current user in session (you might want to implement a proper session manager)
+                CurrentUserSession.setCurrentUser(authenticatedUser);
+                
+                JOptionPane.showMessageDialog(this, 
+                    AppConstants.SuccessMessages.LOGIN_SUCCESS + "! Selamat datang, " + authenticatedUser.getUsername());
+                
+                // Navigate to main application
                 new Costume().setVisible(true);
                 this.dispose();
             } else {
@@ -216,15 +215,9 @@ public class Login extends javax.swing.JFrame {
                 Passtxt.setText("");
             }
             
-        }catch(SQLException e){
-            JOptionPane.showMessageDialog(this, "Terjadi kesalahan koneksi database. Silakan coba lagi.");
-            System.err.println("Database error: " + e.getMessage());
-        }catch(Exception e){
+        } catch(Exception e) {
+            AppLogger.logError("Unexpected error during login", e);
             JOptionPane.showMessageDialog(this, "Terjadi kesalahan sistem. Silakan coba lagi.");
-            System.err.println("Unexpected error: " + e.getMessage());
-        }finally{
-            // Close connections properly
-            DatabaseManager.closeResources(conn, pstmt, rs);
         }
     }//GEN-LAST:event_LoginbtnActionPerformed
 
